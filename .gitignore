@@ -1,0 +1,9 @@
+.pytest_cache
+__pycache__
+*.pyc
+.env
+
+# old code
+src/client.py
+src/waha.py
+*.txt
