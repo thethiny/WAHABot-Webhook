@@ -50,11 +50,14 @@ async def send_message(request: Request):
     message = body.get("text")
     if not chat_id or not message:
         return JSONResponse({"error": "`chat_id` and `text` are both required and cannot be empty"}, 400)
-    
+
     resp = await bot.send(chat_id=chat_id, text=message)
     return JSONResponse(resp)
 
-# --------------- Runnable server loop ---------------
+@bot.app.get("/healthcheck")
+async def healthcheck():
+    return {"status": "ok"}
+
 
 if __name__ == "__main__":
     import uvicorn
