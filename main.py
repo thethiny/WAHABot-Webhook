@@ -63,14 +63,26 @@ async def on_mention_all(
     if not parsed.get("is_group"):
         return {"status": "ok"}
 
+    me = parsed.get("me", {})
+    my_id = me.get("id", "")
+    my_label = me.get("label", "")
+
     messages = []
     group_members = await client.get_group_members(chat_id)
     for member in group_members:
         target_id = member.get("id", member.get("lid", ""))
         if not target_id:
             continue
+        
+        if target_id == my_id and target_id == my_label:
+            print("Not mentioning self!")
+            continue
+            
         messages.append("@" + target_id)
 
+    if not messages:
+        return {"status": "empty"}
+    
     return await bot.send(
         chat_id=chat_id,
         text=" | ".join(messages),

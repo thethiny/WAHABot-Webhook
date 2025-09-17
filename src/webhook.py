@@ -38,7 +38,7 @@ def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
     elif not mentions:
         return "", [], []
     else:
-        cmd, args = ""
+        cmd, *args = ""
 
     return cmd, list(args), list(dict.fromkeys(mentions))
 
@@ -143,6 +143,10 @@ def parse_message_type(event: dict):
             "reply_id": reply_id,
             "should_reply": True,
             "text": message,
+            "me": {
+                "id": my_id,
+                "label": my_label
+            }
         }
     else:
         raise NotImplementedError(f"{event_type=} is not yet supported!")
