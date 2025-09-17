@@ -111,7 +111,7 @@ def parse_message_type(event: dict):
             print(f"Skipping message from me in {chat_type}")
             return {}
 
-        message: str = payload.get("body", "")
+        message: str = payload.get("body") or "" # may be None 
         if not message.strip():
             print(f"Received message in {chat_type} with no body")
             return {

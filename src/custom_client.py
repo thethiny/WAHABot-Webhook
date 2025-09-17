@@ -104,7 +104,7 @@ class WAHABot:
 
         return await self._post("/api/sendText", body)
 
-    async def prepare_to_send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None):
+    async def prepare_to_send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None, mentions = []):
         if reply_to:
             print("Marking Seen for reply")
             await self.mark_seen(chat_id, reply_to)
@@ -116,15 +116,15 @@ class WAHABot:
             print(f"No message to mark as seen in {chat_id}")
 
         try:
-            await self.initiate_typing_process(chat_id, text)
+            await self.initiate_typing_process(chat_id, text, mentions)
         except Exception as e:
             print(f"Error handling `typing...` in {chat_id}: {e}")
             # Allow to send without typing
 
-    async def initiate_typing_process(self, chat_id, text):
+    async def initiate_typing_process(self, chat_id, text, mentions = []):
         try:
             await self.start_typing(chat_id)
-            await asyncio.sleep(min(self._estimate_typing_seconds(text), 60))
+            await asyncio.sleep(min(self._estimate_typing_seconds(text, mentions), 60))
         except Exception as e:
             print(f"Error typing in {chat_id}")
             raise e
@@ -134,9 +134,15 @@ class WAHABot:
         except Exception as e:
             print(f"Error pausing in {chat_id}")
 
-    def _estimate_typing_seconds(self, text: str) -> float:
-        cps = (self.wpm * 5.0) / 60.0  # ~5 chars/word
-        base = len(text) / max(cps, 1e-6)
+    def _estimate_typing_seconds(self, text: str, mentions=[]) -> float:
+        cps = (self.wpm * 5.0) / 60.0
+        base_len = len(text)
+
+        # Reduce cost of mentions
+        mention_chars = sum(len(m) for m in mentions)
+        adjusted_len = base_len - (mention_chars * 0.75)  # 80% discount
+
+        base = adjusted_len / max(cps, 1e-6)
         base = max(self.t_min, min(self.t_max, base))
         jitter = base * self.jitter
         return max(self.t_min, min(self.t_max, base + random.uniform(-jitter, jitter)))
@@ -151,7 +157,7 @@ class WAHABot:
 
     async def send(self, chat_id: str, text: str, reply_to: Optional[str] = None):
         text, mentions = self.parse_mentions_in_text(text)
-        await self.prepare_to_send_text(chat_id, text, reply_to)
+        await self.prepare_to_send_text(chat_id, text, reply_to, mentions)
         return await self._send_text(chat_id, text, reply_to, mentions)
 
     # Decorators

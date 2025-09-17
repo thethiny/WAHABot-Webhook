@@ -55,6 +55,7 @@ async def on_pull(
 
 @bot.on_mention("all")
 @bot.on_mention("everyone")
+# TODO: Add mention admins by refactoring below func
 async def on_mention_all(
     client: WAHABot, chat_id: str, message_id: str, args: List[str],
     raw: Dict[str, Any], parsed, **kwargs
@@ -74,7 +75,7 @@ async def on_mention_all(
         if not target_id:
             continue
         
-        if target_id == my_id and target_id == my_label:
+        if target_id == my_id or target_id == my_label:
             print("Not mentioning self!")
             continue
             
