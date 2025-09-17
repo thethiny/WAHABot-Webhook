@@ -2,8 +2,11 @@
 __pycache__
 *.pyc
 .env
+.env.*
 
 # old code
 src/client.py
 src/waha.py
 *.txt
+
+waha_data
