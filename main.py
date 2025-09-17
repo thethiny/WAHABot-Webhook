@@ -6,6 +6,12 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from src.custom_client import WAHABot
 from src.webhook import webhook
+from src.utils import get_mentions_list
+
+try:
+    from commands.custom_commands import custom_commands_registry
+except ImportError:
+    custom_commands_registry = {}
 
 try:
     from dotenv import load_dotenv
@@ -31,15 +37,7 @@ if not base_url or not api_key:
 bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook)
 
 @bot.on("pull")
-async def on_pull(
-    client: WAHABot, chat_id: str, message_id: str, args: List[str],
-    raw: Dict[str, Any], parsed, **kwargs
-) -> Dict[str, Any]:
-    # Accepts:
-    #   "pull"
-    #   "@<my_number> pull"
-    #   "pull @<my_number>."
-    #   "pull 3133455"
+async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> Dict[str, Any]:
     if args and args[0]:
         return await bot.send(
             chat_id=chat_id,
@@ -52,38 +50,39 @@ async def on_pull(
         reply_to=message_id,
     )
 
-
-@bot.on_mention("all")
-@bot.on_mention("everyone")
-# TODO: Add mention admins by refactoring below func
-async def on_mention_all(
-    client: WAHABot, chat_id: str, message_id: str, args: List[str],
-    raw: Dict[str, Any], parsed, **kwargs
-) -> Dict[str, Any]:
-
+@bot.on_mention("admins")
+@bot.on_mention("control")
+async def on_mention_admins(client: WAHABot, chat_id: str, message_id: str, parsed, **kwargs) -> Dict[str, Any]:
     if not parsed.get("is_group"):
+        print("No tags in private chats")
         return {"status": "ok"}
 
-    me = parsed.get("me", {})
-    my_id = me.get("id", "")
-    my_label = me.get("label", "")
-
-    messages = []
-    group_members = await client.get_group_members(chat_id)
-    for member in group_members:
-        target_id = member.get("id", member.get("lid", ""))
-        if not target_id:
-            continue
-        
-        if target_id == my_id or target_id == my_label:
-            print("Not mentioning self!")
-            continue
-            
-        messages.append("@" + target_id)
+    messages = await get_mentions_list(
+        client, chat_id, parsed.get("me", {}), admins_only=True
+    )
 
     if not messages:
         return {"status": "empty"}
-    
+
+    return await bot.send(
+        chat_id=chat_id,
+        text=" | ".join(messages),
+        reply_to=message_id,
+    )
+
+@bot.on_mention("all")
+@bot.on_mention("everyone")
+async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed, **kwargs) -> Dict[str, Any]:
+
+    if not parsed.get("is_group"):
+        print("No tags in private chats")
+        return {"status": "ok"}
+
+    messages = await get_mentions_list(client, chat_id, parsed.get("me", {}))
+
+    if not messages:
+        return {"status": "empty"}
+
     return await bot.send(
         chat_id=chat_id,
         text=" | ".join(messages),
@@ -106,6 +105,15 @@ async def send_message(request: Request):
 async def healthcheck():
     return {"status": "ok"}
 
+
+print("Registering Additional Commands")
+for listener, commands in custom_commands_registry.items():
+    listener_func = getattr(bot, listener)
+    
+    for command_func, command in commands:
+        print(f"Registering {command} on {command_func.__name__}")
+        decorated_func = listener_func(command)(command_func)
+        globals()[command_func.__name__] = decorated_func
 
 if __name__ == "__main__":
     import uvicorn

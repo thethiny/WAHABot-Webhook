@@ -170,7 +170,7 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     
 
     cmd, args, mentions = parse_command(text)
-    handler = client._handlers.get(cmd)
+    handler = client._handlers.get(cmd.lower())
     mentions_handlers = []
     for mention in mentions:
         m_h = client._mentions_handlers.get(mention)

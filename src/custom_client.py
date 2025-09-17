@@ -90,6 +90,26 @@ class WAHABot:
             raise ValueError(f"Missing group chat id!")
         return await self._get(f"/api/{self.session}/groups/{chat_id}/participants")
 
+    async def _create_poll(self, chat_id: str, name: str, options: List[str], multi: bool = False, reply_to: str = "") -> Dict[str, Any]:
+        body = {
+            "chatId": chat_id,
+            "session": self.session,
+            "poll": {
+                "name": name,
+                "options": options[:12],
+                "multipleAnswers": multi,
+            }
+        }
+
+        if reply_to:
+            body["reply_to"] = reply_to
+
+        return await self._post("/api/sendPoll", body)
+
+    async def create_poll(self, chat_id: str, name: str, options: List[str], multi: bool = False, reply_to: str = "") -> Dict[str, Any]:
+        mark_seen_error = await self.mark_chat_as_seen(chat_id, reply_to)
+        return await self._create_poll(chat_id, name, options, multi, reply_to)
+
     async def _send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None, mentions: List[str] = []):
         body = {
             "session": self.session,
@@ -104,16 +124,23 @@ class WAHABot:
 
         return await self._post("/api/sendText", body)
 
+    async def mark_chat_as_seen(self, chat_id, reply_to):
+        try:
+            if reply_to:
+                print("Marking Seen for reply")
+                await self.mark_seen(chat_id, reply_to)
+            elif chat_id in self.MESSAGES_HISTORY:
+                print("Marking Seen for normal chat")
+                to_mark = self.MESSAGES_HISTORY[chat_id]
+                await self.mark_seen(chat_id, to_mark)
+            else:
+                print(f"No message to mark as seen in {chat_id}")
+        except Exception as e:
+            print(f"Error marking as seen in {chat_id}: {e}")
+            return e
+
     async def prepare_to_send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None, mentions = []):
-        if reply_to:
-            print("Marking Seen for reply")
-            await self.mark_seen(chat_id, reply_to)
-        elif chat_id in self.MESSAGES_HISTORY:
-            print("Marking Seen for normal chat")
-            to_mark = self.MESSAGES_HISTORY[chat_id]
-            await self.mark_seen(chat_id, to_mark)
-        else:
-            print(f"No message to mark as seen in {chat_id}")
+        mark_seen_error = await self.mark_chat_as_seen(chat_id, reply_to)
 
         try:
             await self.initiate_typing_process(chat_id, text, mentions)

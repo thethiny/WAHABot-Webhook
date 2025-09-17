@@ -12,3 +12,5 @@ src/waha.py
 !requirements.txt
 
 waha_data
+
+commands/custom_commands.py
