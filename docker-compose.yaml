@@ -1,0 +1,48 @@
+# https://waha.devlike.pro/docs/how-to/install/
+services:
+  waha:
+    restart: unless-stopped
+    image: devlikeapro/waha
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '100m'
+        max-file: '10'
+    ports:
+      - '${WAHA_PORT:-13000}:${WAHA_PORT:-13000}/tcp'
+    volumes:
+      - './waha_data/sessions:/app/.sessions'
+      - './waha_data/media:/app/.media'
+    env_file:
+      - ./.env
+    depends_on:
+      waha_webhook:
+        condition: service_healthy
+
+  waha_webhook:
+    restart: unless-stopped
+    build:
+      context: ./webhook
+      dockerfile: Dockerfile
+    image: waha_webhook
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEBHOOK_PORT:-13001}/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '100m'
+        max-file: '10'
+    env_file:
+      - ./webhook/.env
+    environment:
+      - WEBHOOK_PORT=${WEBHOOK_PORT:-13001}
+      - BOT_URL=http://waha:${WAHA_PORT:-13000}
+    ports:
+      - "${WEBHOOK_PORT:-13001}:${WEBHOOK_PORT:-13001}"

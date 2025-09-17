@@ -1,3 +1,4 @@
+from functools import wraps
 import os
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +13,15 @@ try:
 except Exception:
     ...
 
+def require_auth(func):
+    @wraps(func)
+    async def wrapper(request: Request, *args, **kwargs):
+        req_api_key = request.headers.get("x-api-key")
+        if req_api_key != api_key:
+            return JSONResponse({"error", "Unauthorized"}, status_code=401)
+        return await func(request, *args, **kwargs)
+    return wrapper
+
 base_url = os.getenv("BOT_URL")
 api_key = os.getenv("BOT_API_KEY")
 run_port = os.getenv("WEBHOOK_PORT", 8000)
@@ -20,11 +30,10 @@ if not base_url or not api_key:
     exit(1)
 bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook)
 
-
 @bot.on("pull")
 async def on_pull(
     client: WAHABot, chat_id: str, message_id: str, args: List[str],
-    raw: Dict[str, Any], **kwargs
+    raw: Dict[str, Any], parsed, **kwargs
 ) -> Dict[str, Any]:
     # Accepts:
     #   "pull"
@@ -43,7 +52,33 @@ async def on_pull(
         reply_to=message_id,
     )
 
+
+@bot.on_mention("all")
+@bot.on_mention("everyone")
+async def on_mention_all(
+    client: WAHABot, chat_id: str, message_id: str, args: List[str],
+    raw: Dict[str, Any], parsed, **kwargs
+) -> Dict[str, Any]:
+
+    if not parsed.get("is_group"):
+        return {"status": "ok"}
+
+    messages = []
+    group_members = await client.get_group_members(chat_id)
+    for member in group_members:
+        target_id = member.get("id", member.get("lid", ""))
+        if not target_id:
+            continue
+        messages.append("@" + target_id)
+
+    return await bot.send(
+        chat_id=chat_id,
+        text=" | ".join(messages),
+        reply_to=message_id,
+    )
+
 @bot.app.route("/send", methods=["POST"])
+@require_auth
 async def send_message(request: Request):
     body = await request.json()
     chat_id = body.get("chat_id")

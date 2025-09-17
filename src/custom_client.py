@@ -8,7 +8,7 @@ import httpx
 
 class WAHABot:
     IGNORE_MESSAGES_SET = set()
-    MENTIONS_RE = re.compile(r"@(\d+)@c\.us")
+    MENTIONS_RE = re.compile(r"@(\d+)@(c\.us|lid)")
     MESSAGES_HISTORY = {
         # chat_id: last_message_id
     }
@@ -26,6 +26,7 @@ class WAHABot:
         self.t_max = t_max
         self.jitter = jitter
         self._handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
+        self._mentions_handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
 
         self.http = httpx.AsyncClient(
             base_url=self.base_url,
@@ -46,6 +47,11 @@ class WAHABot:
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         r = await self.http.post(path, json=payload)
+        r.raise_for_status()
+        return r.json() if r.content else {}
+
+    async def _get(self, path: str) -> Any:
+        r = await self.http.get(path)
         r.raise_for_status()
         return r.json() if r.content else {}
 
@@ -78,6 +84,11 @@ class WAHABot:
 
     async def stop_typing(self, chat_id: str):
         return await self.presence(chat_id, "paused")
+
+    async def get_group_members(self, chat_id: str) -> List[Dict[str, Optional[str]]]:
+        if not chat_id:
+            raise ValueError(f"Missing group chat id!")
+        return await self._get(f"/api/{self.session}/groups/{chat_id}/participants")
 
     async def _send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None, mentions: List[str] = []):
         body = {
@@ -132,7 +143,7 @@ class WAHABot:
 
     def parse_mentions_in_text(self, text):
         matches = self.MENTIONS_RE.findall(text)
-        mentions = [f"{m}@c.us" for m in matches]
+        mentions = list(set([f"{m[0]}@{m[1]}" for m in matches]))
 
         text = self.MENTIONS_RE.sub(r"@\1", text)
 
@@ -143,12 +154,19 @@ class WAHABot:
         await self.prepare_to_send_text(chat_id, text, reply_to)
         return await self._send_text(chat_id, text, reply_to, mentions)
 
-    # Decorator
+    # Decorators
     def on(self, command: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         key = command.strip().lower()
 
         def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
             self._handlers[key] = fn
+            return fn
+
+        return deco
+
+    def on_mention(self, mentioned: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+        def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            self._mentions_handlers[mentioned] = fn
             return fn
 
         return deco

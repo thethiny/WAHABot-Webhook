@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from src.custom_client import WAHABot
 
 _PUNCT_EXCEPT_AT = "".join(ch for ch in string.punctuation if ch != "@")
-_MENTIONS_RE = re.compile(r"@(\d+)@c\.us")
+_MENTIONS_RE = re.compile(r"(?:@\d+@c\.us|@(all|everyone)\b)")
 
 def clean_token(tok: str) -> str:
     tok = tok.strip()
@@ -27,16 +27,18 @@ def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
     new_text = []
     for token in cleaned:
         if is_mention(token):
-            mentions.append(token.rsplit("@", 1)[0][1:])
+            if token.count("@") == 2:
+                token = token.rsplit("@", 1)[0]
+            mentions.append(token.strip("@"))
         else:
             new_text.append(token)
-            
+
     if not new_text:
         return "", [], []
-    
+
     cmd, *args = new_text
-    
-    return cmd, list(args), mentions
+
+    return cmd, list(args), list(dict.fromkeys(mentions))
 
 def parse_message_type(event: dict):
     # TODO: Return if mentioning me or not for commands or responses
@@ -163,18 +165,26 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
 
     cmd, args, mentions = parse_command(text)
     handler = client._handlers.get(cmd)
-    if not handler:
+    mentions_handlers = []
+    for mention in mentions:
+        m_h = client._mentions_handlers.get(mention)
+        if m_h:
+            mentions_handlers.append(m_h)
+    
+    handlers = [handler] if handler else []
+    handlers += mentions_handlers
+    if not handlers:
         print(f"Command {cmd} has no handler")
         return JSONResponse({"ok": False})
-
-    # Provide minimal context via kwargs; no extra classes.
-    result = await handler(
-        client,
-        chat_id=chat_id,
-        message_id=reply_id,
-        args=args,
-        mentions=mentions,
-        raw=evt,
-        parsed=parsed_message,
-    )
+    
+    for handler in handlers:
+        result = await handler(
+            client,
+            chat_id=chat_id,
+            message_id=reply_id,
+            args=args,
+            mentions=mentions,
+            raw=evt,
+            parsed=parsed_message,
+        )
     return JSONResponse(result or {"ok": True})
