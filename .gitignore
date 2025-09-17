@@ -8,5 +8,6 @@ __pycache__
 src/client.py
 src/waha.py
 *.txt
+!requirements.txt
 
 waha_data
