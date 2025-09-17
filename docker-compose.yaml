@@ -25,7 +25,7 @@ services:
   waha_webhook:
     restart: unless-stopped
     build:
-      context: ./webhook
+      context: .
       dockerfile: Dockerfile
     image: waha_webhook
     healthcheck:
@@ -40,7 +40,7 @@ services:
         max-size: '100m'
         max-file: '10'
     env_file:
-      - ./webhook/.env
+      - ./webhook.env
     environment:
       - WEBHOOK_PORT=${WEBHOOK_PORT:-13001}
       - BOT_URL=http://waha:${WAHA_PORT:-13000}
