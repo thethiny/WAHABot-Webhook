@@ -190,7 +190,7 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     
     for handler in handlers:
         result = await handler(
-            client,
+            client=client,
             chat_id=chat_id,
             message_id=reply_id,
             args=args,
