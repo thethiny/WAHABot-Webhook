@@ -32,11 +32,13 @@ def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
             mentions.append(token.strip("@"))
         else:
             new_text.append(token)
-
-    if not new_text:
+   
+    if new_text:
+        cmd, *args = new_text
+    elif not mentions:
         return "", [], []
-
-    cmd, *args = new_text
+    else:
+        cmd, args = ""
 
     return cmd, list(args), list(dict.fromkeys(mentions))
 
@@ -174,7 +176,12 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     handlers = [handler] if handler else []
     handlers += mentions_handlers
     if not handlers:
-        print(f"Command {cmd} has no handler")
+        if mentions:
+            print(f"Mentions was not a command")
+        elif cmd:
+            print(f"Command {cmd} has no handler")
+        else:
+            print(f"No command specified")
         return JSONResponse({"ok": False})
     
     for handler in handlers:
