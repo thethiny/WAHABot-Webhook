@@ -38,7 +38,7 @@ def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
     elif not mentions:
         return "", [], []
     else:
-        cmd, *args = ""
+        cmd, *args = "",
 
     return cmd, list(args), list(dict.fromkeys(mentions))
 
