@@ -8,7 +8,11 @@ import httpx
 
 class WAHABot:
     IGNORE_MESSAGES_SET = set()
-    MENTIONS_RE = re.compile(r"@(\d+)@(c\.us|lid)")
+    
+    WA_DOMAINS = ["c.us", "lid", "s.whatsapp.net"]
+    DOMAINS_RE = "|".join(re.escape(d) for d in WA_DOMAINS)
+
+    MENTIONS_RE = re.compile(rf"@(\d+)@({DOMAINS_RE})")
     MESSAGES_HISTORY = {
         # chat_id: last_message_id
     }

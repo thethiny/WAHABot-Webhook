@@ -50,29 +50,34 @@ async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> D
         reply_to=message_id,
     )
 
-@bot.on_mention("admins")
-@bot.on_mention("control")
-async def on_mention_admins(client: WAHABot, chat_id: str, message_id: str, parsed, **kwargs) -> Dict[str, Any]:
+
+@bot.on("@admin")
+@bot.on("@admins")
+@bot.on("@control")
+async def on_mention_admins(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
     if not parsed.get("is_group"):
         print("No tags in private chats")
         return {"status": "ok"}
 
-    messages = await get_mentions_list(
-        client, chat_id, parsed.get("me", {}), admins_only=True
-    )
+    messages = await get_mentions_list(client, chat_id, parsed.get("me", {}), admins_only=True)
 
     if not messages:
         return {"status": "empty"}
 
+    message = " ".join(args)
+
+    text = message + "\n" if message else ""
+    text += " | ".join(messages)
+
     return await bot.send(
         chat_id=chat_id,
-        text=" | ".join(messages),
+        text=text,
         reply_to=message_id,
     )
 
 @bot.on_mention("all")
 @bot.on_mention("everyone")
-async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed, **kwargs) -> Dict[str, Any]:
+async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
 
     if not parsed.get("is_group"):
         print("No tags in private chats")
@@ -82,10 +87,15 @@ async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed,
 
     if not messages:
         return {"status": "empty"}
+    
+    message = " ".join(args)
+    
+    text = message + "\n" if message else ""
+    text += " | ".join(messages)
 
     return await bot.send(
         chat_id=chat_id,
-        text=" | ".join(messages),
+        text=text,
         reply_to=message_id,
     )
 

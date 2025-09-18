@@ -67,6 +67,7 @@ def parse_message_type(event: dict):
 
         me = event.get("me", {})
         my_id = me.get("id")
+        my_jid = me.get("jid")
 
         my_label_raw = me.get("lid")
         if my_label_raw:
@@ -145,6 +146,7 @@ def parse_message_type(event: dict):
             "text": message,
             "me": {
                 "id": my_id,
+                "jid": my_jid,
                 "label": my_label
             }
         }
