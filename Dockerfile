@@ -8,4 +8,6 @@ WORKDIR /app
 COPY src src
 COPY main.py .
 
+COPY commands commands
+
 ENTRYPOINT ["python3", "-m", "main"]
