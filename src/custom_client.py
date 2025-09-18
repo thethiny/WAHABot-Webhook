@@ -19,7 +19,8 @@ class WAHABot:
 
     def __init__(self, base_url, api_key, session, timeout: float = 10,
         wpm: float = 125, t_min: float = 0.9,t_max: float = 8, jitter: float = 0.2,
-        webhook_func: Callable = lambda *args: print(f"Webhook stub")
+        webhook_func: Callable = lambda *args: print(f"Webhook stub"),
+        notifs_admins: List[str] = [],
     ):
         self.base_url = base_url.strip().rstrip("/")
         self.api_key = api_key
@@ -31,6 +32,7 @@ class WAHABot:
         self.jitter = jitter
         self._handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
         self._mentions_handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
+        self.admins = notifs_admins
 
         self.http = httpx.AsyncClient(
             base_url=self.base_url,

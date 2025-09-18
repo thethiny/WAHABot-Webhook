@@ -167,6 +167,15 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     if reply_id and chat_id:
         print(f"Setting {chat_id} seen marker to {reply_id}")
         client.MESSAGES_HISTORY[chat_id] = reply_id
+    if client.admins and parsed_message.get("type") == "session":
+        status = parsed_message.get("mode")
+        for admin in client.admins:
+            try:
+                await client.send(f"{admin.strip('+')}@c.us", f"Whatsapp Bot Status: {status}")
+            except Exception as e:
+                print(f"Failed to notify admin {admin} for {e}")
+                continue
+        
     if not should_reply:
         return JSONResponse({"ok": False})
     

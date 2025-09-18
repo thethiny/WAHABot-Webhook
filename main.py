@@ -31,10 +31,11 @@ def require_auth(func):
 base_url = os.getenv("BOT_URL")
 api_key = os.getenv("BOT_API_KEY")
 run_port = os.getenv("WEBHOOK_PORT", 8000)
+notifs_admins = [a.strip() for a in os.getenv("NOTIFS_ADMINS", "").split(",")]
 if not base_url or not api_key:
     print("Some Environmental Variables are missing!")
     exit(1)
-bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook)
+bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook, notifs_admins = notifs_admins)
 
 @bot.on("pull")
 async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> Dict[str, Any]:
