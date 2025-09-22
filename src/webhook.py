@@ -163,7 +163,12 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     mentions_me = parsed_message.get("is_mentioned", False)
     if reply_id and chat_id:
         print(f"Setting {chat_id} seen marker to {reply_id}")
-        client.MESSAGES_HISTORY[chat_id] = reply_id
+        client.MESSAGES_HISTORY.setdefault(chat_id, []).append(reply_id)
+        if len(client.MESSAGES_HISTORY[chat_id]) > 10:
+            try:
+                await client.mark_chat_as_seen(chat_id)
+            except Exception:
+                pass
     if parsed_message.get("type") == "session":
         if client.admins:
             status = parsed_message.get("mode")

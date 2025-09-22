@@ -1,6 +1,6 @@
 import asyncio
 import random
-from typing import Any, Awaitable, Callable, Dict, List, Optional, overload
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, overload
 
 from fastapi import FastAPI, Request
 import httpx
@@ -10,7 +10,7 @@ from src.utils import parse_mentions_for_sending
 class WAHABot:
     IGNORE_MESSAGES_SET = set()
 
-    MESSAGES_HISTORY = {
+    MESSAGES_HISTORY: Dict[str, List[str]] = {
         # chat_id: last_message_id
     }
 
@@ -61,19 +61,20 @@ class WAHABot:
         r.raise_for_status()
         return r.json() if r.content else {}
 
-    async def mark_seen(self, chat_id: str, message_id: str):
+    async def mark_seen(self, chat_id: str, message_id: Union[str, List[str]]):
         if not message_id or not chat_id:
             raise ValueError(f"Must provide message_id and chat_id")
         body = {
             "chatId": chat_id,
-            "messageIds": [message_id],
+            "messageIds": [message_id] if not isinstance(message_id, list) else message_id,
             "participant": None,
             "session": self.session
         }
 
         try:
             results = await self._post("/api/sendSeen", body)
-            self.MESSAGES_HISTORY.pop(chat_id, None)
+            # self.MESSAGES_HISTORY.pop(chat_id, None)
+            self.MESSAGES_HISTORY[chat_id] = []
             return results
         except Exception as e:
             print(f"Error marking {message_id} in char {chat_id} as seen: {e}")
@@ -130,19 +131,21 @@ class WAHABot:
 
         return await self._post("/api/sendText", body)
 
-    async def mark_chat_as_seen(self, chat_id, reply_to):
+    async def mark_chat_as_seen(self, chat_id: str, reply_to: Optional[str] = None):
         try:
-            if reply_to:
-                print("Marking Seen for reply")
-                await self.mark_seen(chat_id, reply_to)
-            elif chat_id in self.MESSAGES_HISTORY:
-                print("Marking Seen for normal chat")
-                to_mark = self.MESSAGES_HISTORY[chat_id]
+            to_mark = list(dict.fromkeys(self.MESSAGES_HISTORY.get(chat_id, []) + ([reply_to] if reply_to else [])))
+            if to_mark:
+                print(f"Marking Seen with {reply_to=}")
                 await self.mark_seen(chat_id, to_mark)
             else:
                 print(f"No message to mark as seen in {chat_id}")
         except Exception as e:
             print(f"Error marking as seen in {chat_id}: {e}")
+            if reply_to:
+                self.MESSAGES_HISTORY[chat_id] = [reply_to]
+            else:
+                if len(self.MESSAGES_HISTORY[chat_id]):
+                    self.MESSAGES_HISTORY[chat_id] = [self.MESSAGES_HISTORY[chat_id][-1]]
             return e
 
     async def prepare_to_send_text(self, chat_id: str, text: str, reply_to: Optional[str] = None, mentions = []):
@@ -194,11 +197,16 @@ class WAHABot:
             return fn
 
         return deco
-    
+
     @overload
-    def on_mention(self, mentioned: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
+    def on_mention(
+        self, mentioned: str
+    ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
+
     @overload
-    def on_mention(self, mentioned: None = None) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
+    def on_mention(
+        self, mentioned: None = None
+    ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
 
     def on_mention(
         self, mentioned: Optional[str] = None
@@ -211,7 +219,7 @@ class WAHABot:
             return fn
 
         return deco
-    
+
     def on_text(self) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
             self._no_cmd_handlers.append(fn)
