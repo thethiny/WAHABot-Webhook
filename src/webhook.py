@@ -5,7 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.custom_client import WAHABot
-from src.utils import is_mention, is_mentioned
+from src.utils import cleanup_label, is_mention, is_mentioned
 
 _PUNCT_EXCEPT_AT = "".join(ch for ch in string.punctuation if ch != "@")
 # _MENTIONS_RE = re.compile(r"(?:@\d+@c\.us|@(all|everyone)\b)") # TODO: Remove @ all/everyone and instead change the command from on_mention to on # TODO 2: Update the function to use the better METIONS_RE
@@ -69,13 +69,7 @@ def parse_message_type(event: dict):
         my_id = me.get("id")
         my_jid = me.get("jid")
 
-        my_label_raw = me.get("lid")
-        if my_label_raw:
-            _l_i, _l_r = my_label_raw.split("@", 1)
-            _l_i = _l_i.split(":", 1)[0]
-            my_label = f"{_l_i.strip()}@{_l_r.strip()}"
-        else:
-            my_label = ""
+        my_label = cleanup_label(me.get("lid"))
 
         if not my_id or not my_label or not payload:
             print("Message received but my info is invalid!")
@@ -206,15 +200,17 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
         elif cmd:
             print(f"Command {cmd} has no handler")
         # else:
-            # print(f"No command specified")
+        # print(f"No command specified")
 
         if mentions_me: # If no command but is mentioned then call mentions handler
+            print("Switching to mentions handler")
             all_handlers = client._mention_no_cmd_handlers
         else:
+            print("Switching to fallback handler")
             all_handlers = client._no_cmd_handlers
-        
+
         for handler in all_handlers:
-            handler(
+            await handler(
                 client=client,
                 chat_id=chat_id,
                 message_id=reply_id,
@@ -223,7 +219,6 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
                 raw=evt,
                 parsed=parsed_message,
             )
-
 
         return JSONResponse({"ok": False})
 

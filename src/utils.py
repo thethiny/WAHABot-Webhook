@@ -11,6 +11,16 @@ DOMAINS_RE = "|".join(re.escape(d) for d in WA_DOMAINS)
 MENTIONS_RE = re.compile(rf"@(\d+)@({DOMAINS_RE})")
 MENTIONS_RECV_RE = re.compile(r"@(\d+)")
 
+def cleanup_label(my_label_raw):
+    if my_label_raw:
+        _l_i, _l_r = my_label_raw.split("@", 1)
+        _l_i = _l_i.split(":", 1)[0]
+        my_label = f"{_l_i.strip()}@{_l_r.strip()}"
+    else:
+        my_label = ""
+    return my_label
+
+
 async def get_mentions_list(client: "WAHABot", chat_id, me={}, admins_only=True):
     my_id = me.get("id", "")
     my_jid = me.get("jid", "")
@@ -59,5 +69,5 @@ def is_mentioned(text, user):
     suffixes = ("@c.us", "@lid", "@s.whatsapp.net")
     mentions = {m + s for m in get_mentions(text) for s in suffixes}
     return any(
-        u and u in mentions for u in (user.get("id"), user.get("jid"), user.get("lid"))
+        u and u in mentions for u in (user.get("id"), user.get("jid"), cleanup_label(user.get("lid")))
     )
