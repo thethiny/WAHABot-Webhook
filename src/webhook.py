@@ -5,9 +5,10 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.custom_client import WAHABot
+from src.utils import is_mention, is_mentioned
 
 _PUNCT_EXCEPT_AT = "".join(ch for ch in string.punctuation if ch != "@")
-_MENTIONS_RE = re.compile(r"(?:@\d+@c\.us|@(all|everyone)\b)")
+# _MENTIONS_RE = re.compile(r"(?:@\d+@c\.us|@(all|everyone)\b)") # TODO: Remove @ all/everyone and instead change the command from on_mention to on # TODO 2: Update the function to use the better METIONS_RE
 
 def clean_token(tok: str) -> str:
     tok = tok.strip()
@@ -16,8 +17,8 @@ def clean_token(tok: str) -> str:
 def normalize(tok: str) -> str:
     return tok.strip().lower()
 
-def is_mention(tok: str) -> bool:
-    return bool(_MENTIONS_RE.match(tok))
+# def is_mention(tok: str) -> bool:
+#     return bool(_MENTIONS_RE.match(tok))
 
 def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
     # Ignore leading mentions, strip punctuation/spaces, support args
@@ -43,7 +44,6 @@ def parse_command(text: str) -> Tuple[str, List[str], List[str]]:
     return cmd, list(args), list(dict.fromkeys(mentions))
 
 def parse_message_type(event: dict):
-    # TODO: Return if mentioning me or not for commands or responses
     event_type = event.get("event")
     if not event_type:
         print("No event")
@@ -135,6 +135,7 @@ def parse_message_type(event: dict):
             sender_label = engine_data.get("key", {}).get("senderLid")
 
         print(f"Received message in {chat_type} from {sender_id} - {sender_label}")
+        mentions_me = is_mentioned(message, me)
         return {
             "is_group": chat_type == "g",
             "is_chat": chat_type == "c",
@@ -144,10 +145,11 @@ def parse_message_type(event: dict):
             "reply_id": reply_id,
             "should_reply": True,
             "text": message,
+            "is_mentioned": mentions_me,
             "me": {
                 "id": my_id,
                 "jid": my_jid,
-                "label": my_label
+                "lid": my_label
             }
         }
     else:
@@ -158,27 +160,35 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
     if evt.get("event") in client.IGNORE_MESSAGES_SET:
         return JSONResponse({"status": "ignored"})
 
-    parsed_message = parse_message_type(event=evt)  # TODO: Detect also if this is a mention to me
+    parsed_message = parse_message_type(event=evt)
     print(f"Parsed event: {parsed_message}")
     text = parsed_message.get("text", "") # should not be possible cuz empty text is always should_reply = False
     chat_id = parsed_message.get("chat_id")
     reply_id = parsed_message.get("reply_id")
     should_reply = parsed_message.get("should_reply", False)
+    mentions_me = parsed_message.get("is_mentioned", False)
     if reply_id and chat_id:
         print(f"Setting {chat_id} seen marker to {reply_id}")
         client.MESSAGES_HISTORY[chat_id] = reply_id
-    if client.admins and parsed_message.get("type") == "session":
-        status = parsed_message.get("mode")
-        for admin in client.admins:
-            try:
-                await client.send(f"{admin.strip('+')}@c.us", f"Whatsapp Bot Status: {status}")
-            except Exception as e:
-                print(f"Failed to notify admin {admin} for {e}")
-                continue
-        
+    if parsed_message.get("type") == "session":
+        if client.admins:
+            status = parsed_message.get("mode")
+            for admin in client.admins:
+                try:
+                    await client.send(f"{admin.strip('+')}@c.us", f"Whatsapp Bot Status: {status}")
+                except Exception as e:
+                    print(f"Failed to notify admin {admin} for {e}")
+                    continue
+        for handler in client._status_handlers:
+            handler(
+                client=client,
+                status=status,
+                raw=evt,
+                parsed=parsed_message,
+            )
+
     if not should_reply:
         return JSONResponse({"ok": False})
-    
 
     cmd, args, mentions = parse_command(text)
     handler = client._handlers.get(cmd.lower())
@@ -187,7 +197,7 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
         m_h = client._mentions_handlers.get(mention)
         if m_h:
             mentions_handlers.append(m_h)
-    
+
     handlers = [handler] if handler else []
     handlers += mentions_handlers
     if not handlers:
@@ -195,10 +205,28 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
             print(f"Mentions was not a command")
         elif cmd:
             print(f"Command {cmd} has no handler")
+        # else:
+            # print(f"No command specified")
+
+        if mentions_me: # If no command but is mentioned then call mentions handler
+            all_handlers = client._mention_no_cmd_handlers
         else:
-            print(f"No command specified")
+            all_handlers = client._no_cmd_handlers
+        
+        for handler in all_handlers:
+            handler(
+                client=client,
+                chat_id=chat_id,
+                message_id=reply_id,
+                args=args,
+                mentions=mentions,
+                raw=evt,
+                parsed=parsed_message,
+            )
+
+
         return JSONResponse({"ok": False})
-    
+
     for handler in handlers:
         result = await handler(
             client=client,

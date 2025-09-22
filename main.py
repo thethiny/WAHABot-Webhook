@@ -76,8 +76,8 @@ async def on_mention_admins(client: WAHABot, chat_id: str, message_id: str, pars
         reply_to=message_id,
     )
 
-@bot.on_mention("all")
-@bot.on_mention("everyone")
+@bot.on("@all")
+@bot.on("@everyone")
 async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
 
     if not parsed.get("is_group"):
@@ -120,10 +120,16 @@ async def healthcheck():
 print("Registering Additional Commands")
 for listener, commands in custom_commands_registry.items():
     listener_func = getattr(bot, listener)
-    
-    for command_func, command in commands:
-        print(f"Registering {command} on {command_func.__name__}")
-        decorated_func = listener_func(command)(command_func)
+
+    for cmd_var in commands:
+        if isinstance(cmd_var, tuple):
+            command_func, *command = cmd_var
+            print(f"Registering {command} on {command_func.__name__} as {listener}")
+        else:
+            command_func = cmd_var
+            command = []
+            print(f"Registering {command_func.__name__} as {listener}")
+        decorated_func = listener_func(*command)(command_func)
         globals()[command_func.__name__] = decorated_func
 
 if __name__ == "__main__":

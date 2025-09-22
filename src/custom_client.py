@@ -1,18 +1,15 @@
 import asyncio
 import random
-import re
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, overload
 
 from fastapi import FastAPI, Request
 import httpx
 
+from src.utils import parse_mentions_for_sending
+
 class WAHABot:
     IGNORE_MESSAGES_SET = set()
-    
-    WA_DOMAINS = ["c.us", "lid", "s.whatsapp.net"]
-    DOMAINS_RE = "|".join(re.escape(d) for d in WA_DOMAINS)
 
-    MENTIONS_RE = re.compile(rf"@(\d+)@({DOMAINS_RE})")
     MESSAGES_HISTORY = {
         # chat_id: last_message_id
     }
@@ -32,6 +29,9 @@ class WAHABot:
         self.jitter = jitter
         self._handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
         self._mentions_handlers: Dict[str, Callable[..., Awaitable[Any]]] = {}
+        self._mention_no_cmd_handlers: List[Callable[..., Awaitable[Any]]] = []
+        self._no_cmd_handlers: List[Callable[..., Awaitable[Any]]] = []
+        self._status_handlers: List[Callable[..., Awaitable[Any]]] = []
         self.admins = notifs_admins
 
         self.http = httpx.AsyncClient(
@@ -180,16 +180,8 @@ class WAHABot:
         jitter = base * self.jitter
         return max(self.t_min, min(self.t_max, base + random.uniform(-jitter, jitter)))
 
-    def parse_mentions_in_text(self, text):
-        matches = self.MENTIONS_RE.findall(text)
-        mentions = list(set([f"{m[0]}@{m[1]}" for m in matches]))
-
-        text = self.MENTIONS_RE.sub(r"@\1", text)
-
-        return text, mentions
-
     async def send(self, chat_id: str, text: str, reply_to: Optional[str] = None):
-        text, mentions = self.parse_mentions_in_text(text)
+        text, mentions = parse_mentions_for_sending(text)
         await self.prepare_to_send_text(chat_id, text, reply_to, mentions)
         return await self._send_text(chat_id, text, reply_to, mentions)
 
@@ -202,10 +194,20 @@ class WAHABot:
             return fn
 
         return deco
+    
+    @overload
+    def on_mention(self, mentioned: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
+    @overload
+    def on_mention(self, mentioned: None = None) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]: ...
 
-    def on_mention(self, mentioned: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    def on_mention(
+        self, mentioned: Optional[str] = None
+    ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
-            self._mentions_handlers[mentioned] = fn
+            if mentioned is None:
+                self._mention_no_cmd_handlers.append(fn)
+            else:
+                self._mentions_handlers[mentioned] = fn
             return fn
 
         return deco
