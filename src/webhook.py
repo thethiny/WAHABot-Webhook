@@ -210,17 +210,20 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
             all_handlers = client._no_cmd_handlers
 
         for handler in all_handlers:
-            await handler(
-                client=client,
-                chat_id=chat_id,
-                message_id=reply_id,
-                args=args,
-                mentions=mentions,
-                raw=evt,
-                parsed=parsed_message,
-            )
+            try:
+                await handler(
+                    client=client,
+                    chat_id=chat_id,
+                    message_id=reply_id,
+                    args=args,
+                    mentions=mentions,
+                    raw=evt,
+                    parsed=parsed_message,
+                )
+            except Exception as e:
+                print(f"{handler=} failed with {e}")
 
-        return JSONResponse({"ok": False})
+        return JSONResponse({"ok": bool(len(all_handlers)), "amount": len(all_handlers), "mention": mentions_me})
 
     for handler in handlers:
         result = await handler(

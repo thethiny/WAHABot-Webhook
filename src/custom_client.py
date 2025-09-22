@@ -211,3 +211,10 @@ class WAHABot:
             return fn
 
         return deco
+    
+    def on_text(self) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+        def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            self._no_cmd_handlers.append(fn)
+            return fn
+
+        return deco
