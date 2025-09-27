@@ -37,19 +37,23 @@ if not base_url or not api_key:
     exit(1)
 bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook, notifs_admins=notifs_admins)
 
-@bot.on("pull")
-async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> Dict[str, Any]:
-    if args and args[0]:
-        return await bot.send(
-            chat_id=chat_id,
-            text=f"Pulling event {args[0]}",
-            reply_to=message_id,
-        )
-    return await bot.send(
-        chat_id=chat_id,
-        text="Pulling latest events...",
-        reply_to=message_id,
-    )
+@bot.on("@info")
+async def on_get_info(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
+    sender_id = parsed.get("sender")
+    sender_label = parsed.get("sender_label")
+    sender_name = kwargs.get("raw", {}).get("payload", {}).get("_data", {}).get("pushName", "Unknown")
+    
+    message = f"""
+    *User ID:* {sender_id}
+    *User Label:* {sender_label}
+    *User Name:* {sender_name}
+    *Chat ID:* {chat_id}
+    *Message ID:* {message_id}
+    """.strip()
+    message = '\n'.join([a.strip() for a in message.split("\n") if a.strip()])
+    
+    return await client.send(chat_id, message, message_id)
+    
 
 async def on_mentions_handler(client: WAHABot, chat_id: str, message_id: str, parsed, args, admins_only, **kwargs) -> Dict[str, Any]:
     if not parsed.get("is_group"):

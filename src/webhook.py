@@ -239,35 +239,36 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
 
     if media:
         sticker = media.get("sticker", {})
-        sticker_key = sticker.get("key")
-        sticker_hash = sticker.get("hash")
-        
-        stickers_dict = client._media_handlers["stickers"]
+        if sticker:
+            sticker_key = sticker.get("key")
+            sticker_hash = sticker.get("hash")
+            
+            stickers_dict = client._media_handlers["stickers"]
 
-        handler_key = ""
-        if sticker_key in stickers_dict:
-            handler_key = sticker_key
-        elif sticker_hash in stickers_dict:
-            handler_key = sticker_hash
-        elif sticker_key:
-            handler_key = "all"  # Allow handlers to register to all
-        elif sticker_hash:
-            handler_key = "all"
+            handler_key = ""
+            if sticker_key in stickers_dict:
+                handler_key = sticker_key
+            elif sticker_hash in stickers_dict:
+                handler_key = sticker_hash
+            elif sticker_key:
+                handler_key = "all"  # Allow handlers to register to all
+            elif sticker_hash:
+                handler_key = "all"
 
-        handler = stickers_dict.get(handler_key)  # disallow "" key
-        print(f"Handling sticker media {handler_key} with handler {handler}")
-        if handler:
-            try:
-                await handler(
-                    client=client,
-                    chat_id=chat_id,
-                    message_id=reply_id,
-                    media=media,
-                    raw=evt,
-                    parsed=parsed_message,
-                )
-            except Exception as e:
-                print(f"{handler=} failed with {e}")
+            handler = stickers_dict.get(handler_key)  # disallow "" key
+            print(f"Handling sticker media {handler_key} with handler {handler}")
+            if handler:
+                try:
+                    await handler(
+                        client=client,
+                        chat_id=chat_id,
+                        message_id=reply_id,
+                        media=media,
+                        raw=evt,
+                        parsed=parsed_message,
+                    )
+                except Exception as e:
+                    print(f"{handler=} failed with {e}")
 
     if not should_reply:
         return JSONResponse({"ok": False})
