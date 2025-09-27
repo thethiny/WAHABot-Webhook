@@ -62,7 +62,13 @@ class WAHABot:
         return r.json() if r.content else {}
     
     async def _invoke(self, path: str, method: str, params: Dict[str, Any] = {}, payload: Dict[str, Any] = {}) -> Dict[str, Any]:
-        r = await getattr(self.http, method)(path, json=payload, params=params)
+        extra_dict = {}
+        if params:
+            extra_dict["params"] = params
+        if payload:
+            extra_dict["json"] = payload
+            
+        r = await getattr(self.http, method)(path, **extra_dict)
         r.raise_for_status()
         return r.json() if r.content else {}
 
