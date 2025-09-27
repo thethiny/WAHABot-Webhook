@@ -18,6 +18,8 @@ services:
       - './waha_data/media:/app/.media'
     env_file:
       - ./.env
+    environment:
+      - WHATSAPP_HOOK_URL=http://waha_webhook:${WEBHOOK_PORT:-13001}
     depends_on:
       waha_webhook:
         condition: service_healthy
