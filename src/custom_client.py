@@ -60,6 +60,11 @@ class WAHABot:
         r = await self.http.post(path, json=payload)
         r.raise_for_status()
         return r.json() if r.content else {}
+    
+    async def _invoke(self, path: str, method: str, params: Dict[str, Any] = {}, payload: Dict[str, Any] = {}) -> Dict[str, Any]:
+        r = await getattr(self.http, method)(path, json=payload, params=params)
+        r.raise_for_status()
+        return r.json() if r.content else {}
 
     async def _get(self, path: str) -> Any:
         r = await self.http.get(path)
@@ -135,6 +140,17 @@ class WAHABot:
             body["mentions"] = mentions
 
         return await self._post("/api/sendText", body)
+    
+    async def delete_message(self, chat_id: str, message_id: str):
+        params = {
+            "session": self.session,
+            "chatId": chat_id,
+            "messageId": message_id,
+        }
+        
+        url = "/api/{session}/chats/{chatId}/messages/{messageId}".format(**params)
+        
+        return await self._invoke(url, "delete")
 
     async def mark_chat_as_seen(self, chat_id: str, reply_to: Optional[str] = None):
         try:
