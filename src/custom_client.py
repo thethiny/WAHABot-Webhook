@@ -1,6 +1,6 @@
 import asyncio
 import random
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, overload
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Union, overload
 
 from fastapi import FastAPI, Request
 import httpx
@@ -32,6 +32,11 @@ class WAHABot:
         self._mention_no_cmd_handlers: List[Callable[..., Awaitable[Any]]] = []
         self._no_cmd_handlers: List[Callable[..., Awaitable[Any]]] = []
         self._status_handlers: List[Callable[..., Awaitable[Any]]] = []
+        self._media_handlers: Dict[Union[Literal["stickers"], Literal["images"], Literal["videos"]], Dict[str, Callable[..., Awaitable[Any]]]] = {
+            "stickers": {},
+            "images": {},
+            "videos": {},
+        }
         self.admins = notifs_admins
 
         self.http = httpx.AsyncClient(
@@ -223,6 +228,33 @@ class WAHABot:
     def on_text(self) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
             self._no_cmd_handlers.append(fn)
+            return fn
+
+        return deco
+    
+    def on_sticker(self, sticker_id: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+        key = f"{sticker_id.strip()}"
+
+        def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            self._media_handlers["stickers"][key] = fn
+            return fn
+
+        return deco
+
+    def on_image(self, image_id: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+        key = f"{image_id.strip()}"
+
+        def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            self._media_handlers["images"][key] = fn
+            return fn
+
+        return deco
+    
+    def on_video(self, video_id: str) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+        key = f"{video_id.strip()}"
+
+        def deco(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            self._media_handlers["videos"][key] = fn
             return fn
 
         return deco

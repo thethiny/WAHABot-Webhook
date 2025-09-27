@@ -35,7 +35,7 @@ notifs_admins = [a.strip() for a in os.getenv("NOTIFS_ADMINS", "").split(",") if
 if not base_url or not api_key:
     print("Some Environmental Variables are missing!")
     exit(1)
-bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook, notifs_admins = notifs_admins)
+bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook, notifs_admins=notifs_admins)
 
 @bot.on("pull")
 async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> Dict[str, Any]:
@@ -51,54 +51,44 @@ async def on_pull(chat_id: str, message_id: str, args: List[str], **kwargs) -> D
         reply_to=message_id,
     )
 
+async def on_mentions_handler(client: WAHABot, chat_id: str, message_id: str, parsed, args, admins_only, **kwargs) -> Dict[str, Any]:
+    if not parsed.get("is_group"):
+        print("No tags in private chats")
+        return {"status": "ok"}
+
+    messages = await get_mentions_list(client, chat_id, parsed.get("me", {}), admins_only=admins_only)
+
+    if not messages:
+        return {"status": "empty"}
+
+    message = " ".join(args)
+
+    text = message + "\n" if message else ""
+    text += " | ".join(messages)
+
+    reply_history_id = parsed.get("reply_history_id")
+    if reply_history_id:
+        reply_to = reply_history_id
+    else:
+        reply_to = message_id
+
+    return await bot.send(
+        chat_id=chat_id,
+        text=text,
+        reply_to=reply_to,
+    )
 
 @bot.on("@admin")
 @bot.on("@admins")
 @bot.on("@control")
 async def on_mention_admins(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
-    if not parsed.get("is_group"):
-        print("No tags in private chats")
-        return {"status": "ok"}
+    return await on_mentions_handler(client, chat_id, message_id, parsed, args, admins_only=True, **kwargs)
 
-    messages = await get_mentions_list(client, chat_id, parsed.get("me", {}), admins_only=True)
-
-    if not messages:
-        return {"status": "empty"}
-
-    message = " ".join(args)
-
-    text = message + "\n" if message else ""
-    text += " | ".join(messages)
-
-    return await bot.send(
-        chat_id=chat_id,
-        text=text,
-        reply_to=message_id,
-    )
 
 @bot.on("@all")
 @bot.on("@everyone")
 async def on_mention_all(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
-
-    if not parsed.get("is_group"):
-        print("No tags in private chats")
-        return {"status": "ok"}
-
-    messages = await get_mentions_list(client, chat_id, parsed.get("me", {}))
-
-    if not messages:
-        return {"status": "empty"}
-    
-    message = " ".join(args)
-    
-    text = message + "\n" if message else ""
-    text += " | ".join(messages)
-
-    return await bot.send(
-        chat_id=chat_id,
-        text=text,
-        reply_to=message_id,
-    )
+    return await on_mentions_handler(client, chat_id, message_id, parsed, args, admins_only=False, **kwargs)
 
 @bot.app.route("/send", methods=["POST"])
 @require_auth

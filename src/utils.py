@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from src.custom_client import WAHABot  # only for type checking
@@ -21,11 +21,19 @@ def cleanup_label(my_label_raw):
     return my_label
 
 
-async def get_mentions_list(client: "WAHABot", chat_id, me={}, admins_only=True):
-    my_id = me.get("id", "")
-    my_jid = me.get("jid", "")
-    my_label = me.get("lid", "")
+def is_me(target_id: str, me: dict) -> bool:
+    if not me:
+        raise ValueError("Missing me")
+    return is_target(target_id, me.get("id", ""), me.get("jid", ""), me.get("lid", ""))
 
+
+def is_target(target_id: Optional[str], my_id: str, my_jid: str, my_label: str) -> bool:
+    if not target_id:
+        return False
+    return target_id in (my_id, my_label, my_jid)
+
+
+async def get_mentions_list(client: "WAHABot", chat_id, me={}, admins_only=True):
     messages = []
     group_members = await client.get_group_members(chat_id)
     for member in group_members:
@@ -37,7 +45,7 @@ async def get_mentions_list(client: "WAHABot", chat_id, me={}, admins_only=True)
         if admins_only and not admin_type:
             continue
 
-        if me and (target_id == my_id or target_id == my_label or target_id == my_jid):
+        if me and is_me(target_id, me):
             print("Not mentioning self!")
             continue
 
