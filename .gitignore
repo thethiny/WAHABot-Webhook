@@ -4,6 +4,7 @@ __pycache__
 .env
 .env.*
 *.env
+tmp
 
 # old code
 src/client.py
