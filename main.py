@@ -8,10 +8,14 @@ from src.custom_client import WAHABot
 from src.webhook import webhook
 from src.utils import get_mentions_list
 
+
 try:
     from commands.custom_commands import custom_commands_registry
+    from commands.custom_commands import router as custom_router
+    custom_routers = [custom_router]
 except ImportError:
     custom_commands_registry = {}
+    custom_routers = []
 
 try:
     from dotenv import load_dotenv
@@ -126,7 +130,9 @@ for listener, commands in custom_commands_registry.items():
         decorated_func = listener_func(*command)(command_func)
         globals()[command_func.__name__] = decorated_func
 
+for custom_router in custom_routers:
+    bot.app.include_router(custom_router)
+
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(bot.app, host="0.0.0.0", port=int(run_port))
