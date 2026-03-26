@@ -23,19 +23,19 @@ def require_auth(func):
     @wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
         req_api_key = request.headers.get("x-api-key")
-        if req_api_key != api_key:
-            return JSONResponse({"error", "Unauthorized"}, status_code=401)
+        if req_api_key not in api_keys:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await func(request, *args, **kwargs)
     return wrapper
 
 base_url = os.getenv("BOT_URL")
-api_key = os.getenv("BOT_API_KEY")
+api_keys = [a.strip() for a in os.getenv("BOT_API_KEY", "").split(",") if a.strip()]
 run_port = os.getenv("WEBHOOK_PORT", 8000)
 notifs_admins = [a.strip() for a in os.getenv("NOTIFS_ADMINS", "").split(",") if a.strip()]
-if not base_url or not api_key:
+if not base_url or not api_keys or not any(api_keys):
     print("Some Environmental Variables are missing!")
     exit(1)
-bot = WAHABot(base_url=base_url, api_key=api_key, session="default", webhook_func=webhook, notifs_admins=notifs_admins)
+bot = WAHABot(base_url=base_url, api_key=api_keys[0], session="default", webhook_func=webhook, notifs_admins=notifs_admins)
 
 @bot.on("@info")
 async def on_get_info(client: WAHABot, chat_id: str, message_id: str, parsed, args, **kwargs) -> Dict[str, Any]:
