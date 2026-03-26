@@ -13,9 +13,9 @@ try:
     from commands.custom_commands import custom_commands_registry
     from commands.custom_commands import router as custom_router
     custom_routers = [custom_router]
-except ImportError:
+except ImportError as e:
     custom_commands_registry = {}
-    custom_routers = []
+    print("custom commands registry error:", e)
 
 try:
     from dotenv import load_dotenv
