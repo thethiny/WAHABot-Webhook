@@ -15,6 +15,7 @@ try:
     custom_routers = [custom_router]
 except ImportError as e:
     custom_commands_registry = {}
+    custom_routers = []
     print("custom commands registry error:", e)
 
 try:
