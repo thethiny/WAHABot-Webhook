@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from src.custom_client import WAHABot
+from src.storage import storage_get_messages
 from src.webhook import webhook
 from src.utils import get_mentions_list
 
@@ -114,6 +115,13 @@ async def send_message(request: Request):
 @bot.app.get("/healthcheck")
 async def healthcheck():
     return {"status": "ok"}
+
+@bot.app.get("/pull/{chat_id}")
+@require_auth
+async def pull_messages(request: Request, chat_id: str):
+    n = int(request.query_params.get("n", "20"))
+    messages = storage_get_messages(chat_id, n)
+    return JSONResponse({"chat_id": chat_id, "count": len(messages), "messages": messages})
 
 
 print("Registering Additional Commands")

@@ -5,6 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.custom_client import WAHABot
+from src.storage import storage_capture
 from src.utils import cleanup_label, is_mention, is_mentioned, is_me, is_target
 
 _PUNCT_EXCEPT_AT = "".join(ch for ch in string.punctuation if ch != "@")
@@ -272,6 +273,10 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
 
     if not should_reply:
         return JSONResponse({"ok": False})
+
+    sender = parsed_message.get("sender", "")
+    push_name = evt.get("payload", {}).get("_data", {}).get("pushName", sender)
+    storage_capture(chat_id, push_name, text, reply_id)
 
     cmd, args, mentions = parse_command(text)
     handler = client._handlers.get(cmd.lower())
