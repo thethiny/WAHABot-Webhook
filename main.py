@@ -109,7 +109,8 @@ async def send_message(request: Request):
     if not chat_id or not message:
         return JSONResponse({"error": "`chat_id` and `text` are both required and cannot be empty"}, 400)
 
-    resp = await bot.send(chat_id=chat_id, text=message)
+    reply_to = body.get("reply_to")
+    resp = await bot.send(chat_id=chat_id, text=message, reply_to=reply_to)
     return JSONResponse(resp)
 
 @bot.app.get("/healthcheck")
