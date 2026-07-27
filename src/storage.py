@@ -14,6 +14,8 @@ def storage_subscribe(feature: str, chat_id: str) -> None:
 def storage_unsubscribe(feature: str, chat_id: str) -> None:
     if feature in _subscribers:
         _subscribers[feature].discard(chat_id)
+    if not storage_is_enabled(chat_id):
+        _history.pop(chat_id, None)
 
 
 def storage_is_enabled(chat_id: str) -> bool:

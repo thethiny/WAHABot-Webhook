@@ -275,8 +275,8 @@ async def webhook(client: WAHABot, request: Request) -> JSONResponse:
         return JSONResponse({"ok": False})
 
     sender = parsed_message.get("sender", "")
-    push_name = evt.get("payload", {}).get("_data", {}).get("pushName", sender)
-    storage_capture(chat_id, push_name, text, reply_id)
+    push_name = evt.get("payload", {}).get("_data", {}).get("pushName") or sender
+    storage_capture(chat_id, push_name or "", text or "", reply_id or "")
 
     cmd, args, mentions = parse_command(text)
     handler = client._handlers.get(cmd.lower())
